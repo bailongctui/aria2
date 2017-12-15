@@ -35,6 +35,7 @@
 #ifndef D_UNKNOWN_LENGTH_PIECE_STORAGE_H
 #define D_UNKNOWN_LENGTH_PIECE_STORAGE_H
 
+#include "FatalException.h"
 #include "PieceStorage.h"
 
 namespace aria2 {
@@ -135,7 +136,7 @@ public:
   virtual std::shared_ptr<Piece> getPiece(size_t index) CXX11_OVERRIDE;
 
   /**
-   * Tells that the download of the specfied piece completes.
+   * Tells that the download of the specified piece completes.
    */
   virtual void
   completePiece(const std::shared_ptr<Piece>& piece) CXX11_OVERRIDE;
@@ -161,11 +162,7 @@ public:
     return totalLength_;
   }
 
-  virtual int64_t getCompletedLength() CXX11_OVERRIDE
-  {
-    // TODO we have to return actual completed length here?
-    return totalLength_;
-  }
+  virtual int64_t getCompletedLength() CXX11_OVERRIDE;
 
   virtual int64_t getFilteredCompletedLength() CXX11_OVERRIDE
   {
@@ -223,30 +220,23 @@ public:
 
   virtual int32_t getPieceLength(size_t index) CXX11_OVERRIDE;
 
-  /**
-   * Adds piece index to advertise to other commands. They send have message
-   * based on this information.
-   */
-  virtual void advertisePiece(cuid_t cuid, size_t index) CXX11_OVERRIDE {}
+  virtual void advertisePiece(cuid_t cuid, size_t index,
+                              Timer registeredTime) CXX11_OVERRIDE
+  {
+  }
 
   /**
-   * Returns piece index which is not advertised by the caller command and
-   * newer than lastCheckTime.
+   * indexes is filled with piece index which is not advertised by the
+   * caller command and newer than lastHaveIndex.
    */
-  virtual void
+  virtual uint64_t
   getAdvertisedPieceIndexes(std::vector<size_t>& indexes, cuid_t myCuid,
-                            const Timer& lastCheckTime) CXX11_OVERRIDE
+                            uint64_t lastHaveIndex) CXX11_OVERRIDE
   {
+    throw FATAL_EXCEPTION("Not Implemented!");
   }
 
-  /**
-   * Removes have entry if specified seconds have elapsed since its
-   * registration.
-   */
-  virtual void
-  removeAdvertisedPiece(const std::chrono::seconds& elapsed) CXX11_OVERRIDE
-  {
-  }
+  virtual void removeAdvertisedPiece(const Timer& expiry) CXX11_OVERRIDE {}
 
   /**
    * Sets all bits in bitfield to 1.

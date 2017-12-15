@@ -237,19 +237,54 @@ std::shared_ptr<RequestGroup>
 createBtMagnetRequestGroup(const std::string& magnetLink,
                            const std::shared_ptr<Option>& optionTemplate)
 {
-  auto option = util::copy(optionTemplate);
-  auto gid = getGID(option);
-  auto rg = std::make_shared<RequestGroup>(gid, option);
   auto dctx = std::make_shared<DownloadContext>(METADATA_PIECE_SIZE, 0);
 
   // We only know info hash. Total Length is unknown at this moment.
   dctx->markTotalLengthIsUnknown();
-  rg->setFileAllocationEnabled(false);
-  rg->setPreLocalFileCheckEnabled(false);
+
   bittorrent::loadMagnet(magnetLink, dctx);
   auto torrentAttrs = bittorrent::getTorrentAttrs(dctx);
+
+  if (optionTemplate->getAsBool(PREF_BT_LOAD_SAVED_METADATA)) {
+    // Try to read .torrent file saved by aria2 (see
+    // UTMetadataPostDownloadHandler and --bt-save-metadata option).
+    auto torrentFilename =
+        util::applyDir(optionTemplate->get(PREF_DIR),
+                       util::toHex(torrentAttrs->infoHash) + ".torrent");
+
+    bittorrent::ValueBaseBencodeParser parser;
+    auto torrent = parseFile(parser, torrentFilename);
+    if (torrent) {
+      auto rg = createBtRequestGroup(torrentFilename, optionTemplate, {},
+                                     torrent.get());
+      const auto& actualInfoHash =
+          bittorrent::getTorrentAttrs(rg->getDownloadContext())->infoHash;
+
+      if (torrentAttrs->infoHash == actualInfoHash) {
+        A2_LOG_NOTICE(fmt("BitTorrent metadata was loaded from %s",
+                          torrentFilename.c_str()));
+        rg->setMetadataInfo(createMetadataInfo(rg->getGroupId(), magnetLink));
+        return rg;
+      }
+
+      A2_LOG_WARN(
+          fmt("BitTorrent metadata loaded from %s has unexpected infohash %s\n",
+              torrentFilename.c_str(), util::toHex(actualInfoHash).c_str()));
+    }
+  }
+
+  auto option = util::copy(optionTemplate);
   bittorrent::adjustAnnounceUri(torrentAttrs, option);
-  dctx->getFirstFileEntry()->setPath(torrentAttrs->name);
+  // torrentAttrs->name may contain "/", but we use basename of
+  // FileEntry::getPath() to print out in-memory download entry.
+  // Since "/" is treated as separator, we replace it with "-".
+  dctx->getFirstFileEntry()->setPath(
+      util::replace(torrentAttrs->name, "/", "-"));
+
+  auto gid = getGID(option);
+  auto rg = std::make_shared<RequestGroup>(gid, option);
+  rg->setFileAllocationEnabled(false);
+  rg->setPreLocalFileCheckEnabled(false);
   rg->setDownloadContext(dctx);
   rg->clearPostDownloadHandler();
   rg->addPostDownloadHandler(
@@ -521,15 +556,14 @@ bool createRequestGroupFromUriListParser(
 std::shared_ptr<UriListParser> openUriListParser(const std::string& filename)
 {
   std::string listPath;
-  if (filename == "-") {
-    listPath = DEV_STDIN;
+
+  auto f = File(filename);
+  if (!f.exists() || f.isDir()) {
+    throw DL_ABORT_EX(fmt(EX_FILE_OPEN, filename.c_str(),
+                          "File not found or it is a directory"));
   }
-  else {
-    if (!File(filename).isFile()) {
-      throw DL_ABORT_EX(fmt(EX_FILE_OPEN, filename.c_str(), "No such file"));
-    }
-    listPath = filename;
-  }
+  listPath = filename;
+
   return std::make_shared<UriListParser>(listPath);
 }
 

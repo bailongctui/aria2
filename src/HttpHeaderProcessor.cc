@@ -79,11 +79,11 @@ HttpHeaderProcessor::HttpHeaderProcessor(ParserMode mode)
       state_(mode == CLIENT_PARSER ? PREV_RES_VERSION : PREV_METHOD),
       lastBytesProcessed_(0),
       lastFieldHdKey_(HttpHeader::MAX_INTERESTING_HEADER),
-      result_(new HttpHeader())
+      result_(make_unique<HttpHeader>())
 {
 }
 
-HttpHeaderProcessor::~HttpHeaderProcessor() {}
+HttpHeaderProcessor::~HttpHeaderProcessor() = default;
 
 namespace {
 size_t getToken(std::string& buf, const unsigned char* data, size_t length,
@@ -481,7 +481,7 @@ void HttpHeaderProcessor::clear()
   buf_.clear();
   lastFieldName_.clear();
   lastFieldHdKey_ = HttpHeader::MAX_INTERESTING_HEADER;
-  result_.reset(new HttpHeader());
+  result_ = make_unique<HttpHeader>();
   headers_.clear();
 }
 

@@ -134,14 +134,20 @@ std::string generatePeerId(const std::string& peerIdPrefix);
 // uses generatePeerId(peerIdPrefix) to produce Peer ID.
 const std::string& generateStaticPeerId(const std::string& peerIdPrefix);
 
+const std::string& generateStaticPeerAgent(const std::string& peerAgent);
+
 // Returns Peer ID statically stored by generateStaticPeerId().  If
 // Peer ID is not stored yet, this function calls
 // generateStaticPeerId("aria2-")
 const unsigned char* getStaticPeerId();
 
+const std::string& getStaticPeerAgent();
+
 // Set newPeerId as a static Peer ID. newPeerId must be 20-byte
 // length.
 void setStaticPeerId(const std::string& newPeerId);
+
+void setStaticPeerAgent(const std::string& newPeerAgent);
 
 // Computes fast set index and returns them.
 std::vector<size_t> computeFastSet(const std::string& ipaddr, size_t numPieces,
@@ -275,7 +281,7 @@ void extractPeer(const ValueBase* peerData, int family, OutputIterator dest)
     {
     }
 
-    virtual ~PeerListValueBaseVisitor() {}
+    virtual ~PeerListValueBaseVisitor() = default;
 
     virtual void visit(const String& peerData) CXX11_OVERRIDE
     {
@@ -373,6 +379,12 @@ void print(Output& o, const std::shared_ptr<DownloadContext>& dctx)
              eoi = torrentAttrs->urlList.end();
          i != eoi; ++i) {
       o.printf(" %s\n", (*i).c_str());
+    }
+  }
+  if (!torrentAttrs->nodes.empty()) {
+    o.write("Nodes:\n");
+    for (auto& p : torrentAttrs->nodes) {
+      o.printf(" %s:%u\n", p.first.c_str(), p.second);
     }
   }
   o.printf("Name: %s\n", torrentAttrs->name.c_str());

@@ -150,6 +150,7 @@ RequestGroup::RequestGroup(const std::shared_ptr<GroupId>& gid,
       haltRequested_(false),
       forceHaltRequested_(false),
       pauseRequested_(false),
+      restartRequested_(false),
       inMemoryDownload_(false),
       seedOnly_(false)
 {
@@ -160,7 +161,7 @@ RequestGroup::RequestGroup(const std::shared_ptr<GroupId>& gid,
   }
 }
 
-RequestGroup::~RequestGroup() {}
+RequestGroup::~RequestGroup() = default;
 
 bool RequestGroup::isCheckIntegrityReady()
 {
@@ -370,16 +371,28 @@ void RequestGroup::createInitialCommand(
         }
       }
       const auto& nodes = torrentAttrs->nodes;
-      // TODO Are nodes in torrent IPv4 only?
-      if (!torrentAttrs->privateTorrent && !nodes.empty() &&
-          DHTRegistry::isInitialized()) {
-        auto command = make_unique<DHTEntryPointNameResolveCommand>(
-            e->newCUID(), e, nodes);
-        command->setTaskQueue(DHTRegistry::getData().taskQueue.get());
-        command->setTaskFactory(DHTRegistry::getData().taskFactory.get());
-        command->setRoutingTable(DHTRegistry::getData().routingTable.get());
-        command->setLocalNode(DHTRegistry::getData().localNode);
-        e->addCommand(std::move(command));
+      if (!torrentAttrs->privateTorrent && !nodes.empty()) {
+        if (DHTRegistry::isInitialized()) {
+          auto command = make_unique<DHTEntryPointNameResolveCommand>(
+              e->newCUID(), e, AF_INET, nodes);
+          const auto& data = DHTRegistry::getData();
+          command->setTaskQueue(data.taskQueue.get());
+          command->setTaskFactory(data.taskFactory.get());
+          command->setRoutingTable(data.routingTable.get());
+          command->setLocalNode(data.localNode);
+          e->addCommand(std::move(command));
+        }
+
+        if (DHTRegistry::isInitialized6()) {
+          auto command = make_unique<DHTEntryPointNameResolveCommand>(
+              e->newCUID(), e, AF_INET6, nodes);
+          const auto& data = DHTRegistry::getData6();
+          command->setTaskQueue(data.taskQueue.get());
+          command->setTaskFactory(data.taskFactory.get());
+          command->setRoutingTable(data.routingTable.get());
+          command->setLocalNode(data.localNode);
+          e->addCommand(std::move(command));
+        }
       }
     }
     else if (metadataGetMode) {
@@ -604,6 +617,35 @@ void RequestGroup::initPieceStorage()
   segmentMan_ =
       std::make_shared<SegmentMan>(downloadContext_, tempPieceStorage);
   pieceStorage_ = tempPieceStorage;
+
+#ifdef __MINGW32__
+  // Windows build: --file-allocation=falloc uses SetFileValidData
+  // which requires SE_MANAGE_VOLUME_NAME privilege.  SetFileValidData
+  // has security implications (see
+  // https://msdn.microsoft.com/en-us/library/windows/desktop/aa365544%28v=vs.85%29.aspx).
+  static auto gainPrivilegeAttempted = false;
+
+  if (!gainPrivilegeAttempted &&
+      pieceStorage_->getDiskAdaptor()->getFileAllocationMethod() ==
+          DiskAdaptor::FILE_ALLOC_FALLOC &&
+      isFileAllocationEnabled()) {
+    if (!util::gainPrivilege(SE_MANAGE_VOLUME_NAME)) {
+      A2_LOG_WARN("--file-allocation=falloc will not work properly.");
+    }
+    else {
+      A2_LOG_DEBUG("SE_MANAGE_VOLUME_NAME privilege acquired");
+
+      A2_LOG_WARN(
+          "--file-allocation=falloc will use SetFileValidData() API, and "
+          "aria2 uses uninitialized disk space which may contain "
+          "confidential data as the download file space. If it is "
+          "undesirable, --file-allocation=prealloc is slower, but safer "
+          "option.");
+    }
+
+    gainPrivilegeAttempted = true;
+  }
+#endif // __MINGW32__
 }
 
 void RequestGroup::dropPieceStorage()
@@ -748,8 +790,27 @@ void RequestGroup::tryAutoFileRenaming()
         fmt("File renaming failed: %s", getFirstFilePath().c_str()),
         error_code::FILE_RENAMING_FAILED);
   }
+  auto fn = filepath;
+  std::string ext;
+  const auto idx = fn.find_last_of(".");
+  const auto slash = fn.find_last_of("\\/");
+  // Do extract the extension, as in "file.ext" = "file" and ".ext",
+  // but do not consider ".file" to be a file name without extension instead
+  // of a blank file name and an extension of ".file"
+  if (idx != std::string::npos &&
+      // fn has no path component and starts with a dot, but has no extension
+      // otherwise
+      idx != 0 &&
+      // has a file path component if we found a slash.
+      // if slash == idx - 1 this means a form of "*/.*", so the file name
+      // starts with a dot, has no extension otherwise, and therefore do not
+      // extract an extension either
+      (slash == std::string::npos || slash < idx - 1)) {
+    ext = fn.substr(idx);
+    fn = fn.substr(0, idx);
+  }
   for (int i = 1; i < 10000; ++i) {
-    auto newfilename = fmt("%s.%d", filepath.c_str(), i);
+    auto newfilename = fmt("%s.%d%s", fn.c_str(), i, ext.c_str());
     File newfile(newfilename);
     File ctrlfile(newfile.getPath() + DefaultBtProgressInfoFile::getSuffix());
     if (!newfile.exists() || (newfile.exists() && ctrlfile.exists())) {
@@ -957,6 +1018,8 @@ void RequestGroup::setForceHaltRequested(bool f, HaltReason haltReason)
 
 void RequestGroup::setPauseRequested(bool f) { pauseRequested_ = f; }
 
+void RequestGroup::setRestartRequested(bool f) { restartRequested_ = f; }
+
 void RequestGroup::releaseRuntimeResource(DownloadEngine* e)
 {
 #ifdef ENABLE_BITTORRENT
@@ -965,7 +1028,7 @@ void RequestGroup::releaseRuntimeResource(DownloadEngine* e)
   peerStorage_ = nullptr;
 #endif // ENABLE_BITTORRENT
   if (pieceStorage_) {
-    pieceStorage_->removeAdvertisedPiece(0_s);
+    pieceStorage_->removeAdvertisedPiece(Timer::zero());
   }
   // Don't reset segmentMan_ and pieceStorage_ here to provide
   // progress information via RPC
@@ -1277,6 +1340,11 @@ bool RequestGroup::isSeeder() const
 #else  // !ENABLE_BITTORRENT
   return false;
 #endif // !ENABLE_BITTORRENT
+}
+
+void RequestGroup::setPendingOption(std::shared_ptr<Option> option)
+{
+  pendingOption_ = std::move(option);
 }
 
 } // namespace aria2

@@ -60,7 +60,7 @@ MetalinkParserController::MetalinkParserController()
 {
 }
 
-MetalinkParserController::~MetalinkParserController() {}
+MetalinkParserController::~MetalinkParserController() = default;
 
 void MetalinkParserController::reset()
 {
@@ -254,7 +254,7 @@ void MetalinkParserController::commitResourceTransaction()
   else {
     tEntry_->resources.push_back(std::move(tResource_));
   }
-#else // !ENABLE_BITTORRENT
+#else  // !ENABLE_BITTORRENT
   tEntry_->resources.push_back(std::move(tResource_));
 #endif // !ENABLE_BITTORRENT
   tResource_.reset();

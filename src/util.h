@@ -280,6 +280,10 @@ bool parseUIntNoThrow(uint32_t& res, const std::string& s, int base = 10);
 
 bool parseLLIntNoThrow(int64_t& res, const std::string& s, int base = 10);
 
+// Parses |s| as floating point number, and stores the result into
+// |res|.  This function returns true if it succeeds.
+bool parseDoubleNoThrow(double& res, const std::string& s);
+
 SegList<int> parseIntSegments(const std::string& src);
 
 // Parses string which specifies the range of piece index for higher
@@ -318,11 +322,15 @@ std::string iso8859p1ToUtf8(const std::string& src);
 // succeeds, or -1. If there is enough room to store filename in
 // |dest|, this function returns -1. If this function returns -1, the
 // |dest|, |*charsetp| and |*charsetlenp| are undefined.
+//
+// It will handle quoted string(as in RFC 7230 section 3.2.6) as
+// ISO-8859-1 by default, or UTF-8 if defaultUTF8 == true.
 ssize_t parse_content_disposition(char* dest, size_t destlen,
                                   const char** charsetp, size_t* charsetlenp,
-                                  const char* in, size_t len);
+                                  const char* in, size_t len, bool defaultUTF8);
 
-std::string getContentDispositionFilename(const std::string& header);
+std::string getContentDispositionFilename(const std::string& header,
+                                          bool defaultUTF8);
 
 std::string toUpper(std::string src);
 

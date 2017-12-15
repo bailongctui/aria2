@@ -75,7 +75,7 @@ BooleanOptionHandler::BooleanOptionHandler(PrefPtr pref,
 {
 }
 
-BooleanOptionHandler::~BooleanOptionHandler() {}
+BooleanOptionHandler::~BooleanOptionHandler() = default;
 
 void BooleanOptionHandler::parseArg(Option& option,
                                     const std::string& optarg) const
@@ -111,7 +111,7 @@ IntegerRangeOptionHandler::IntegerRangeOptionHandler(
 {
 }
 
-IntegerRangeOptionHandler::~IntegerRangeOptionHandler() {}
+IntegerRangeOptionHandler::~IntegerRangeOptionHandler() = default;
 
 void IntegerRangeOptionHandler::parseArg(Option& option,
                                          const std::string& optarg) const
@@ -146,7 +146,7 @@ NumberOptionHandler::NumberOptionHandler(PrefPtr pref, const char* description,
 {
 }
 
-NumberOptionHandler::~NumberOptionHandler() {}
+NumberOptionHandler::~NumberOptionHandler() = default;
 
 void NumberOptionHandler::parseArg(Option& option,
                                    const std::string& optarg) const
@@ -210,7 +210,7 @@ UnitNumberOptionHandler::UnitNumberOptionHandler(
 {
 }
 
-UnitNumberOptionHandler::~UnitNumberOptionHandler() {}
+UnitNumberOptionHandler::~UnitNumberOptionHandler() = default;
 
 void UnitNumberOptionHandler::parseArg(Option& option,
                                        const std::string& optarg) const
@@ -229,7 +229,7 @@ FloatNumberOptionHandler::FloatNumberOptionHandler(
 {
 }
 
-FloatNumberOptionHandler::~FloatNumberOptionHandler() {}
+FloatNumberOptionHandler::~FloatNumberOptionHandler() = default;
 
 void FloatNumberOptionHandler::parseArg(Option& option,
                                         const std::string& optarg) const
@@ -287,7 +287,7 @@ DefaultOptionHandler::DefaultOptionHandler(
 {
 }
 
-DefaultOptionHandler::~DefaultOptionHandler() {}
+DefaultOptionHandler::~DefaultOptionHandler() = default;
 
 void DefaultOptionHandler::parseArg(Option& option,
                                     const std::string& optarg) const
@@ -316,7 +316,7 @@ CumulativeOptionHandler::CumulativeOptionHandler(
 {
 }
 
-CumulativeOptionHandler::~CumulativeOptionHandler() {}
+CumulativeOptionHandler::~CumulativeOptionHandler() = default;
 
 void CumulativeOptionHandler::parseArg(Option& option,
                                        const std::string& optarg) const
@@ -340,7 +340,7 @@ IndexOutOptionHandler::IndexOutOptionHandler(PrefPtr pref,
 {
 }
 
-IndexOutOptionHandler::~IndexOutOptionHandler() {}
+IndexOutOptionHandler::~IndexOutOptionHandler() = default;
 
 void IndexOutOptionHandler::parseArg(Option& option,
                                      const std::string& optarg) const
@@ -375,7 +375,7 @@ ChecksumOptionHandler::ChecksumOptionHandler(
 {
 }
 
-ChecksumOptionHandler::~ChecksumOptionHandler() {}
+ChecksumOptionHandler::~ChecksumOptionHandler() = default;
 
 void ChecksumOptionHandler::parseArg(Option& option,
                                      const std::string& optarg) const
@@ -411,7 +411,7 @@ ParameterOptionHandler::ParameterOptionHandler(
 {
 }
 
-ParameterOptionHandler::~ParameterOptionHandler() {}
+ParameterOptionHandler::~ParameterOptionHandler() = default;
 
 void ParameterOptionHandler::parseArg(Option& option,
                                       const std::string& optarg) const
@@ -457,7 +457,7 @@ HostPortOptionHandler::HostPortOptionHandler(
 {
 }
 
-HostPortOptionHandler::~HostPortOptionHandler() {}
+HostPortOptionHandler::~HostPortOptionHandler() = default;
 
 void HostPortOptionHandler::parseArg(Option& option,
                                      const std::string& optarg) const
@@ -496,7 +496,7 @@ HttpProxyOptionHandler::HttpProxyOptionHandler(PrefPtr pref,
 {
 }
 
-HttpProxyOptionHandler::~HttpProxyOptionHandler() {}
+HttpProxyOptionHandler::~HttpProxyOptionHandler() = default;
 
 void HttpProxyOptionHandler::parseArg(Option& option,
                                       const std::string& optarg) const
@@ -531,10 +531,13 @@ std::string HttpProxyOptionHandler::createPossibleValuesString() const
 
 LocalFilePathOptionHandler::LocalFilePathOptionHandler(
     PrefPtr pref, const char* description, const std::string& defaultValue,
-    bool acceptStdin, char shortName)
+    bool acceptStdin, char shortName, bool mustExist,
+    const std::string& possibleValuesString)
     : AbstractOptionHandler(pref, description, defaultValue,
                             OptionHandler::REQ_ARG, shortName),
-      acceptStdin_(acceptStdin)
+      possibleValuesString_(possibleValuesString),
+      acceptStdin_(acceptStdin),
+      mustExist_(mustExist)
 {
 }
 
@@ -545,16 +548,26 @@ void LocalFilePathOptionHandler::parseArg(Option& option,
     option.put(pref_, DEV_STDIN);
   }
   else {
-    File f(optarg);
-    if (!f.exists() || f.isDir()) {
-      throw DL_ABORT_EX(fmt(MSG_NOT_FILE, optarg.c_str()));
+    auto path = util::replace(optarg, "${HOME}", util::getHomeDir());
+    if (mustExist_) {
+      File f(path);
+      std::string err;
+      if (!f.exists(err)) {
+        throw DL_ABORT_EX(err);
+      }
+      if (f.isDir()) {
+        throw DL_ABORT_EX(fmt(MSG_NOT_FILE, optarg.c_str()));
+      }
     }
-    option.put(pref_, optarg);
+    option.put(pref_, path);
   }
 }
 
 std::string LocalFilePathOptionHandler::createPossibleValuesString() const
 {
+  if (!possibleValuesString_.empty()) {
+    return possibleValuesString_;
+  }
   if (acceptStdin_) {
     return PATH_TO_FILE_STDIN;
   }
@@ -625,7 +638,7 @@ void OptimizeConcurrentDownloadsOptionHandler::parseArg(
     for (;;) {
       char* end;
       errno = 0;
-      auto dbl = strtod(sptr->c_str(), &end);
+      strtod(sptr->c_str(), &end);
       if (errno != 0 || sptr->c_str() + sptr->size() != end) {
         throw DL_ABORT_EX(fmt("Bad number '%s'", sptr->c_str()));
       }

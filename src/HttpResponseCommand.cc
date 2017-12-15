@@ -139,7 +139,7 @@ HttpResponseCommand::HttpResponseCommand(
   checkSocketRecvBuffer();
 }
 
-HttpResponseCommand::~HttpResponseCommand() {}
+HttpResponseCommand::~HttpResponseCommand() = default;
 
 bool HttpResponseCommand::executeInternal()
 {
@@ -184,6 +184,19 @@ bool HttpResponseCommand::executeInternal()
     getPieceStorage()->markAllPiecesDone();
     // Just set checksum verification done.
     ctx->setChecksumVerified(true);
+
+    if (fe->getPath().empty()) {
+      // If path is empty, set default file name or file portion of
+      // URI.  This is the file we used to get modified date.
+      auto& file = getRequest()->getFile();
+      auto suffixPath = util::createSafePath(
+          getRequest()->getFile().empty()
+              ? Request::DEFAULT_FILE
+              : util::percentDecode(std::begin(file), std::end(file)));
+      fe->setPath(util::applyDir(getOption()->get(PREF_DIR), suffixPath));
+      fe->setSuffixPath(suffixPath);
+    }
+
     A2_LOG_NOTICE(fmt(MSG_DOWNLOAD_ALREADY_COMPLETED,
                       GroupId::toHex(grp->getGID()).c_str(),
                       grp->getFirstFilePath().c_str()));
@@ -248,8 +261,8 @@ bool HttpResponseCommand::executeInternal()
     int64_t totalLength = httpResponse->getEntityLength();
     fe->setLength(totalLength);
     if (fe->getPath().empty()) {
-      auto suffixPath = util::createSafePath(httpResponse->determineFilename());
-
+      auto suffixPath = util::createSafePath(httpResponse->determineFilename(
+          getOption()->getAsBool(PREF_CONTENT_DISPOSITION_DEFAULT_UTF8)));
       fe->setPath(util::applyDir(getOption()->get(PREF_DIR), suffixPath));
       fe->setSuffixPath(suffixPath);
     }
@@ -266,9 +279,8 @@ bool HttpResponseCommand::executeInternal()
       // we ignore content-length when inflate is required
       fe->setLength(0);
       if (req->getMethod() == Request::METHOD_GET &&
-          (totalLength != 0 ||
-           !httpResponse->getHttpHeader()->defined(
-               HttpHeader::CONTENT_LENGTH))) {
+          (totalLength != 0 || !httpResponse->getHttpHeader()->defined(
+                                   HttpHeader::CONTENT_LENGTH))) {
         // DownloadContext::knowsTotalLength() == true only when
         // server says the size of file is 0 explicitly.
         getDownloadContext()->markTotalLengthIsUnknown();
@@ -409,9 +421,8 @@ bool HttpResponseCommand::handleOtherEncoding(
       httpResponse.get(), getContentEncodingStreamFilter(httpResponse.get()));
   // If chunked transfer-encoding is specified, we have to read end of
   // chunk markers(0\r\n\r\n, for example).
-  bool chunkedUsed =
-      streamFilter &&
-      streamFilter->getName() == ChunkedDecodingStreamFilter::NAME;
+  bool chunkedUsed = streamFilter && streamFilter->getName() ==
+                                         ChunkedDecodingStreamFilter::NAME;
 
   // For zero-length file, check existing file comparing its size
   if (!chunkedUsed && getDownloadContext()->knowsTotalLength() &&
@@ -544,7 +555,7 @@ HttpResponseCommand::createHttpDownloadCommand(
   getRequestGroup()->getURISelector()->tuneDownloadCommand(
       getFileEntry()->getRemainingUris(), command.get());
 
-  return std::move(command);
+  return command;
 }
 
 void HttpResponseCommand::poolConnection()

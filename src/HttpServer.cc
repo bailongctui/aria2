@@ -76,7 +76,7 @@ HttpServer::HttpServer(const std::shared_ptr<SocketCore>& socket)
 {
 }
 
-HttpServer::~HttpServer() {}
+HttpServer::~HttpServer() = default;
 
 namespace {
 const char* getStatusString(int status)
@@ -188,7 +188,7 @@ bool HttpServer::receiveRequest()
     socketRecvBuffer_->drain(headerProcessor_->getLastBytesProcessed());
     bodyConsumed_ = 0;
     if (setupResponseRecv() < 0) {
-      A2_LOG_INFO("Request path is invaild. Ignore the request body.");
+      A2_LOG_INFO("Request path is invalid. Ignore the request body.");
     }
     const std::string& contentLengthHdr =
         lastRequestHeader_->find(HttpHeader::CONTENT_LENGTH);

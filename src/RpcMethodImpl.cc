@@ -791,9 +791,10 @@ void gatherProgress(Dict* entryDict, const std::shared_ptr<RequestGroup>& group,
   gatherProgressCommon(entryDict, group, keys);
 #ifdef ENABLE_BITTORRENT
   if (group->getDownloadContext()->hasAttribute(CTX_ATTR_BT)) {
-    gatherProgressBitTorrent(entryDict, group, bittorrent::getTorrentAttrs(
-                                                   group->getDownloadContext()),
-                             e->getBtRegistry()->get(group->getGID()), keys);
+    gatherProgressBitTorrent(
+        entryDict, group,
+        bittorrent::getTorrentAttrs(group->getDownloadContext()),
+        e->getBtRegistry()->get(group->getGID()), keys);
   }
 #endif // ENABLE_BITTORRENT
   if (e->getCheckIntegrityMan()) {
@@ -1113,10 +1114,22 @@ std::unique_ptr<ValueBase> ChangeOptionRpcMethod::process(const RpcRequest& req,
 
   a2_gid_t gid = str2Gid(gidParam);
   auto group = e->getRequestGroupMan()->findGroup(gid);
-  Option option;
   if (group) {
+    Option option;
+    std::shared_ptr<Option> pendingOption;
     if (group->getState() == RequestGroup::STATE_ACTIVE) {
-      gatherChangeableOption(&option, optsParam);
+      pendingOption = std::make_shared<Option>();
+      gatherChangeableOption(&option, pendingOption.get(), optsParam);
+      if (!pendingOption->emptyLocal()) {
+        group->setPendingOption(pendingOption);
+        // pauseRequestGroup() may fail if group has been told to
+        // stop/pause already.  In that case, we can still apply the
+        // pending options on pause.
+        if (pauseRequestGroup(group, false, false)) {
+          group->setRestartRequested(true);
+          e->setRefreshInterval(std::chrono::milliseconds(0));
+        }
+      }
     }
     else {
       gatherChangeableOptionForReserved(&option, optsParam);
@@ -1589,7 +1602,7 @@ void changeOption(const std::shared_ptr<RequestGroup>& group,
 #ifdef ENABLE_BITTORRENT
              && !dctx->hasAttribute(CTX_ATTR_BT)
 #endif // ENABLE_BITTORRENT
-                 ) {
+    ) {
       // In case of Metalink
       for (auto& fileEntry : dctx->getFileEntries()) {
         // PREF_OUT is not applicable to Metalink.  We have always

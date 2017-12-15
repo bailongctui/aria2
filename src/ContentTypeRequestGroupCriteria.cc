@@ -42,12 +42,12 @@
 namespace aria2 {
 
 ContentTypeRequestGroupCriteria::ContentTypeRequestGroupCriteria(
-    const char** contentTypes, const char** extensions)
+    const char* const* contentTypes, const char* const* extensions)
     : contentTypes_(contentTypes), extensions_(extensions)
 {
 }
 
-ContentTypeRequestGroupCriteria::~ContentTypeRequestGroupCriteria() {}
+ContentTypeRequestGroupCriteria::~ContentTypeRequestGroupCriteria() = default;
 
 bool ContentTypeRequestGroupCriteria::match(
     const RequestGroup* requestGroup) const

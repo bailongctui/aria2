@@ -56,10 +56,9 @@ InitiateConnectionCommandFactory::createInitiateConnectionCommand(
   if (req->getProtocol() == "http"
 #ifdef ENABLE_SSL
       // for SSL
-      ||
-      req->getProtocol() == "https"
+      || req->getProtocol() == "https"
 #endif // ENABLE_SSL
-      ) {
+  ) {
 
     if (requestGroup->getOption()->getAsBool(PREF_ENABLE_HTTP_KEEP_ALIVE)) {
       req->setKeepAliveHint(true);
@@ -75,7 +74,7 @@ InitiateConnectionCommandFactory::createInitiateConnectionCommand(
 #ifdef HAVE_LIBSSH2
            || req->getProtocol() == "sftp"
 #endif // HAVE_LIBSSH2
-           ) {
+  ) {
     if (req->getFile().empty()) {
       throw DL_ABORT_EX(fmt("FTP/SFTP URI %s doesn't contain file path.",
                             req->getUri().c_str()));

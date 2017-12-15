@@ -150,14 +150,22 @@ void executeCommand(std::deque<std::unique_ptr<Command>>& commands,
 namespace {
 class GlobalHaltRequestedFinalizer {
 public:
-  GlobalHaltRequestedFinalizer() {}
-  ~GlobalHaltRequestedFinalizer() { global::globalHaltRequested = 5; }
+  GlobalHaltRequestedFinalizer(bool oneshot) : oneshot_(oneshot) {}
+  ~GlobalHaltRequestedFinalizer()
+  {
+    if (!oneshot_) {
+      global::globalHaltRequested = 5;
+    }
+  }
+
+private:
+  bool oneshot_;
 };
 } // namespace
 
 int DownloadEngine::run(bool oneshot)
 {
-  GlobalHaltRequestedFinalizer ghrf;
+  GlobalHaltRequestedFinalizer ghrf(oneshot);
   while (!commands_.empty() || !routineCommands_.empty()) {
     if (!commands_.empty()) {
       waitData();
@@ -316,7 +324,7 @@ void DownloadEngine::evictSocketPool()
   }
 
   std::multimap<std::string, SocketPoolEntry> newPool;
-  A2_LOG_DEBUG("Scaning SocketPool and erasing timed out entry.");
+  A2_LOG_DEBUG("Scanning SocketPool and erasing timed out entry.");
   for (auto& elem : socketPool_) {
     if (!elem.second.isTimeout()) {
       newPool.insert(elem);
@@ -431,8 +439,8 @@ std::multimap<std::string, DownloadEngine::SocketPoolEntry>::iterator
 DownloadEngine::findSocketPoolEntry(const std::string& key)
 {
   std::pair<std::multimap<std::string, SocketPoolEntry>::iterator,
-            std::multimap<std::string, SocketPoolEntry>::iterator> range =
-      socketPool_.equal_range(key);
+            std::multimap<std::string, SocketPoolEntry>::iterator>
+      range = socketPool_.equal_range(key);
   for (auto i = range.first, eoi = range.second; i != eoi; ++i) {
     const SocketPoolEntry& e = (*i).second;
     // We assume that if socket is readable it means peer shutdowns
@@ -519,7 +527,7 @@ DownloadEngine::SocketPoolEntry::SocketPoolEntry(
 {
 }
 
-DownloadEngine::SocketPoolEntry::~SocketPoolEntry() {}
+DownloadEngine::SocketPoolEntry::~SocketPoolEntry() = default;
 
 bool DownloadEngine::SocketPoolEntry::isTimeout() const
 {

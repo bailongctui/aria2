@@ -4,6 +4,7 @@
 
 #include "crypto_hash.h"
 #include "crypto_endian.h"
+#include "a2functional.h"
 
 #include <cstring>
 #include <stdexcept>
@@ -98,7 +99,7 @@ protected:
   }
 
 public:
-  AlgorithmImpl() {}
+  AlgorithmImpl() = default;
 
   virtual void update(const void* data, uint64_t len)
   {
@@ -1032,18 +1033,10 @@ static const std::set<std::string> names{
 
 // For fast name |lookup|
 static const std::unordered_map<std::string, Algorithms> mapped{
-    {"md5", algoMD5},
-    {"sha", algoSHA1},
-    {"sha1", algoSHA1},
-    {"sha-1", algoSHA1},
-    {"sha224", algoSHA224},
-    {"sha-224", algoSHA224},
-    {"sha256", algoSHA256},
-    {"sha-256", algoSHA256},
-    {"sha384", algoSHA384},
-    {"sha-384", algoSHA384},
-    {"sha512", algoSHA512},
-    {"sha-512", algoSHA512},
+    {"md5", algoMD5},        {"sha", algoSHA1},       {"sha1", algoSHA1},
+    {"sha-1", algoSHA1},     {"sha224", algoSHA224},  {"sha-224", algoSHA224},
+    {"sha256", algoSHA256},  {"sha-256", algoSHA256}, {"sha384", algoSHA384},
+    {"sha-384", algoSHA384}, {"sha512", algoSHA512},  {"sha-512", algoSHA512},
 };
 static const auto mapped_end = mapped.end();
 } // namespace
@@ -1063,22 +1056,22 @@ std::unique_ptr<Algorithm> crypto::hash::create(Algorithms algo)
 {
   switch (algo) {
   case algoMD5:
-    return std::unique_ptr<MD5>(new MD5());
+    return aria2::make_unique<MD5>();
 
   case algoSHA1:
-    return std::unique_ptr<SHA1>(new SHA1());
+    return aria2::make_unique<SHA1>();
 
   case algoSHA224:
-    return std::unique_ptr<SHA224>(new SHA224());
+    return aria2::make_unique<SHA224>();
 
   case algoSHA256:
-    return std::unique_ptr<SHA256>(new SHA256());
+    return aria2::make_unique<SHA256>();
 
   case algoSHA384:
-    return std::unique_ptr<SHA384>(new SHA384());
+    return aria2::make_unique<SHA384>();
 
   case algoSHA512:
-    return std::unique_ptr<SHA512>(new SHA512());
+    return aria2::make_unique<SHA512>();
 
   default:
     throw std::domain_error("Invalid hash algorithm");

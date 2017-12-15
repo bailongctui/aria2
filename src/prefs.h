@@ -302,6 +302,8 @@ extern PrefPtr PREF_STOP_WITH_PROCESS;
 extern PrefPtr PREF_ENABLE_MMAP;
 // value: true | false
 extern PrefPtr PREF_FORCE_SAVE;
+// value: true | false
+extern PrefPtr PREF_SAVE_NOT_FOUND;
 // value: 1*digit
 extern PrefPtr PREF_DISK_CACHE;
 // value: string
@@ -326,6 +328,8 @@ extern PrefPtr PREF_SOCKET_RECV_BUFFER_SIZE;
 extern PrefPtr PREF_MAX_MMAP_LIMIT;
 // value: true | false
 extern PrefPtr PREF_STDERR;
+// value: true | false
+extern PrefPtr PREF_KEEP_UNFINISHED_DOWNLOAD_RESULT;
 
 /**
  * FTP related preferences
@@ -376,6 +380,8 @@ extern PrefPtr PREF_HTTP_AUTH_CHALLENGE;
 extern PrefPtr PREF_HTTP_NO_CACHE;
 // value: true | false
 extern PrefPtr PREF_HTTP_ACCEPT_GZIP;
+// value: true | false
+extern PrefPtr PREF_CONTENT_DISPOSITION_DEFAULT_UTF8;
 
 /**;
  * Proxy related preferences
@@ -420,7 +426,7 @@ extern PrefPtr PREF_LISTEN_PORT;
 extern PrefPtr PREF_FOLLOW_TORRENT;
 // values: 1*digit *( (,|-) 1*digit)
 extern PrefPtr PREF_SELECT_FILE;
-// values: 1*digit
+// values: 1*digit ['.' [ 1*digit ] ]
 extern PrefPtr PREF_SEED_TIME;
 // values: 1*digit ['.' [ 1*digit ] ]
 extern PrefPtr PREF_SEED_RATIO;
@@ -428,6 +434,8 @@ extern PrefPtr PREF_SEED_RATIO;
 extern PrefPtr PREF_BT_KEEP_ALIVE_INTERVAL;
 // values: a string, less than or equals to 20 bytes length
 extern PrefPtr PREF_PEER_ID_PREFIX;
+// values: a string representing the extended BT handshake peer user agent
+extern PrefPtr PREF_PEER_AGENT;
 // values: true | false
 extern PrefPtr PREF_ENABLE_PEER_EXCHANGE;
 // values: true | false
@@ -508,6 +516,8 @@ extern PrefPtr PREF_BT_DETACH_SEED_ONLY;
 extern PrefPtr PREF_BT_FORCE_ENCRYPTION;
 // values: true | false
 extern PrefPtr PREF_BT_ENABLE_HOOK_AFTER_HASH_CHECK;
+// values: true | false
+extern PrefPtr PREF_BT_LOAD_SAVED_METADATA;
 
 /**
  * Metalink related preferences

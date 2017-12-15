@@ -84,6 +84,7 @@
 #include "array_fun.h"
 #include "OpenedFileCounter.h"
 #include "wallclock.h"
+#include "RpcMethodImpl.h"
 #ifdef ENABLE_BITTORRENT
 #include "bittorrent_helper.h"
 #endif // ENABLE_BITTORRENT
@@ -369,8 +370,10 @@ public:
       try {
         group->closeFile();
         if (group->isPauseRequested()) {
-          A2_LOG_NOTICE(fmt(_("Download GID#%s paused"),
-                            GroupId::toHex(group->getGID()).c_str()));
+          if (!group->isRestartRequested()) {
+            A2_LOG_NOTICE(fmt(_("Download GID#%s paused"),
+                              GroupId::toHex(group->getGID()).c_str()));
+          }
           group->saveControlFile();
         }
         else if (group->downloadFinished() &&
@@ -433,9 +436,20 @@ public:
         reservedGroups_.push_front(group->getGID(), group);
         group->releaseRuntimeResource(e_);
         group->setForceHaltRequested(false);
-        util::executeHookByOptName(group, e_->getOption(),
-                                   PREF_ON_DOWNLOAD_PAUSE);
-        notifyDownloadEvent(EVENT_ON_DOWNLOAD_PAUSE, group);
+
+        auto pendingOption = group->getPendingOption();
+        if (pendingOption) {
+          changeOption(group, *pendingOption, e_);
+        }
+
+        if (group->isRestartRequested()) {
+          group->setPauseRequested(false);
+        }
+        else {
+          util::executeHookByOptName(group, e_->getOption(),
+                                     PREF_ON_DOWNLOAD_PAUSE);
+          notifyDownloadEvent(EVENT_ON_DOWNLOAD_PAUSE, group);
+        }
         // TODO Should we have to prepend spend uris to remaining uris
         // in case PREF_REUSE_URI is disabled?
       }
@@ -445,6 +459,10 @@ public:
         executeStopHook(group, e_->getOption(), dr->result);
         group->releaseRuntimeResource(e_);
       }
+
+      group->setRestartRequested(false);
+      group->setPendingOption(nullptr);
+
       return true;
     }
     else {
@@ -759,7 +777,8 @@ void formatDownloadResultCommon(
   if (downloadResult->sessionTime.count() > 0) {
     o << std::setw(8)
       << util::abbrevSize(downloadResult->sessionDownloadLength * 1000 /
-                          downloadResult->sessionTime.count()) << "B/s";
+                          downloadResult->sessionTime.count())
+      << "B/s";
   }
   else {
     o << std::setw(11);
@@ -902,13 +921,21 @@ void RequestGroupMan::addDownloadResult(
   bool rv = downloadResults_.push_back(dr->gid->getNumericId(), dr);
   assert(rv);
   while (downloadResults_.size() > maxDownloadResult_) {
-    DownloadResultList::iterator i = downloadResults_.begin();
     // Save last encountered error code so that we can report it
     // later.
-    const std::shared_ptr<DownloadResult>& dr = *i;
+    const auto& dr = downloadResults_[0];
     if (dr->belongsTo == 0 && dr->result != error_code::FINISHED) {
       removedLastErrorResult_ = dr->result;
       ++removedErrorResult_;
+
+      // Keep unfinished download result, so that we can save them by
+      // SessionSerializer.
+      if (option_->getAsBool(PREF_KEEP_UNFINISHED_DOWNLOAD_RESULT)) {
+        if (dr->result != error_code::REMOVED ||
+            dr->option->getAsBool(PREF_FORCE_SAVE)) {
+          unfinishedDownloadResults_.push_back(dr);
+        }
+      }
     }
     downloadResults_.pop_front();
   }
@@ -1059,7 +1086,7 @@ int RequestGroupMan::optimizeConcurrentDownloads()
   }
 
   if (optimizationSpeed_ <= 0) {
-    return 1;
+    return optimizeConcurrentDownloadsCoeffA_;
   }
 
   // apply the rule
@@ -1079,7 +1106,7 @@ int RequestGroupMan::optimizeConcurrentDownloads()
   A2_LOG_DEBUG(
       fmt("Max concurrent downloads optimized at %d (%lu currently active) "
           "[optimization speed %sB/s, current speed %sB/s]",
-          maxConcurrentDownloads, numActive_,
+          maxConcurrentDownloads, static_cast<unsigned long>(numActive_),
           util::abbrevSize(optimizationSpeed_).c_str(),
           util::abbrevSize(currentSpeed).c_str()));
 

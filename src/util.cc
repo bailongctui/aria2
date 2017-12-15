@@ -323,7 +323,7 @@ bool isUtf8(const std::string& str)
         firstChar == 0x0au ||                                // \n
         firstChar == 0x0cu ||                                // \f
         firstChar == 0x0du                                   // \r
-        ) {
+    ) {
       // UTF8-1 (without ctrl chars)
     }
     else if (in(firstChar, 0xc2u, 0xdfu)) {
@@ -547,7 +547,7 @@ bool parseLong(T& res, F f, const std::string& s, int base)
     return false;
   }
   if (*endptr != '\0') {
-    for (const char* i = endptr, * eoi = s.c_str() + s.size(); i < eoi; ++i) {
+    for (const char *i = endptr, *eoi = s.c_str() + s.size(); i < eoi; ++i) {
       if (!isspace(*i)) {
         return false;
       }
@@ -594,6 +594,33 @@ bool parseLLIntNoThrow(int64_t& res, const std::string& s, int base)
   else {
     return false;
   }
+}
+
+bool parseDoubleNoThrow(double& res, const std::string& s)
+{
+  if (s.empty()) {
+    return false;
+  }
+
+  errno = 0;
+  char* endptr;
+  auto d = strtod(s.c_str(), &endptr);
+
+  if (errno == ERANGE) {
+    return false;
+  }
+
+  if (endptr != s.c_str() + s.size()) {
+    for (auto i = std::begin(s) + (endptr - s.c_str()); i != std::end(s); ++i) {
+      if (!isspace(*i)) {
+        return false;
+      }
+    }
+  }
+
+  res = d;
+
+  return true;
 }
 
 SegList<int> parseIntSegments(const std::string& src)
@@ -723,7 +750,7 @@ void parsePrioritizePieceRange(
 std::string iso8859p1ToUtf8(const char* src, size_t len)
 {
   std::string dest;
-  for (const char* p = src, * last = src + len; p != last; ++p) {
+  for (const char *p = src, *last = src + len; p != last; ++p) {
     unsigned char c = *p;
     if (0xa0u <= c) {
       if (c <= 0xbfu) {
@@ -783,31 +810,375 @@ static const uint8_t utf8d[] = {
      * The first part of the table maps bytes to character classes that
      * to reduce the size of the transition table and create bitmasks.
      */
-    0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
-    0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
-    0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
-    0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
-    0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
-    0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
-    0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  1,  1,  1,  1,  1,
-    1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  9,  9,  9,  9,  9,  9,  9,  9,
-    9,  9,  9,  9,  9,  9,  9,  9,  7,  7,  7,  7,  7,  7,  7,  7,  7,  7,  7,
-    7,  7,  7,  7,  7,  7,  7,  7,  7,  7,  7,  7,  7,  7,  7,  7,  7,  7,  7,
-    7,  7,  8,  8,  2,  2,  2,  2,  2,  2,  2,  2,  2,  2,  2,  2,  2,  2,  2,
-    2,  2,  2,  2,  2,  2,  2,  2,  2,  2,  2,  2,  2,  2,  2,  10, 3,  3,  3,
-    3,  3,  3,  3,  3,  3,  3,  3,  3,  4,  3,  3,  11, 6,  6,  6,  5,  8,  8,
-    8,  8,  8,  8,  8,  8,  8,  8,  8,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    9,
+    9,
+    9,
+    9,
+    9,
+    9,
+    9,
+    9,
+    9,
+    9,
+    9,
+    9,
+    9,
+    9,
+    9,
+    9,
+    7,
+    7,
+    7,
+    7,
+    7,
+    7,
+    7,
+    7,
+    7,
+    7,
+    7,
+    7,
+    7,
+    7,
+    7,
+    7,
+    7,
+    7,
+    7,
+    7,
+    7,
+    7,
+    7,
+    7,
+    7,
+    7,
+    7,
+    7,
+    7,
+    7,
+    7,
+    7,
+    8,
+    8,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    10,
+    3,
+    3,
+    3,
+    3,
+    3,
+    3,
+    3,
+    3,
+    3,
+    3,
+    3,
+    3,
+    4,
+    3,
+    3,
+    11,
+    6,
+    6,
+    6,
+    5,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
 
     /*
      * The second part is a transition table that maps a combination
      * of a state of the automaton and a character class to a state.
      */
-    0,  12, 24, 36, 60, 96, 84, 12, 12, 12, 48, 72, 12, 12, 12, 12, 12, 12, 12,
-    12, 12, 12, 12, 12, 12, 0,  12, 12, 12, 12, 12, 0,  12, 0,  12, 12, 12, 24,
-    12, 12, 12, 12, 12, 24, 12, 24, 12, 12, 12, 12, 12, 12, 12, 12, 12, 24, 12,
-    12, 12, 12, 12, 24, 12, 12, 12, 12, 12, 12, 12, 24, 12, 12, 12, 12, 12, 12,
-    12, 12, 12, 36, 12, 36, 12, 12, 12, 36, 12, 12, 12, 12, 12, 36, 12, 36, 12,
-    12, 12, 36, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12,
+    0,
+    12,
+    24,
+    36,
+    60,
+    96,
+    84,
+    12,
+    12,
+    12,
+    48,
+    72,
+    12,
+    12,
+    12,
+    12,
+    12,
+    12,
+    12,
+    12,
+    12,
+    12,
+    12,
+    12,
+    12,
+    0,
+    12,
+    12,
+    12,
+    12,
+    12,
+    0,
+    12,
+    0,
+    12,
+    12,
+    12,
+    24,
+    12,
+    12,
+    12,
+    12,
+    12,
+    24,
+    12,
+    24,
+    12,
+    12,
+    12,
+    12,
+    12,
+    12,
+    12,
+    12,
+    12,
+    24,
+    12,
+    12,
+    12,
+    12,
+    12,
+    24,
+    12,
+    12,
+    12,
+    12,
+    12,
+    12,
+    12,
+    24,
+    12,
+    12,
+    12,
+    12,
+    12,
+    12,
+    12,
+    12,
+    12,
+    36,
+    12,
+    36,
+    12,
+    12,
+    12,
+    36,
+    12,
+    12,
+    12,
+    12,
+    12,
+    36,
+    12,
+    36,
+    12,
+    12,
+    12,
+    36,
+    12,
+    12,
+    12,
+    12,
+    12,
+    12,
+    12,
+    12,
+    12,
+    12,
 };
 
 static uint32_t utf8dfa(uint32_t* state, uint32_t* codep, uint32_t byte)
@@ -855,10 +1226,10 @@ typedef enum {
 
 ssize_t parse_content_disposition(char* dest, size_t destlen,
                                   const char** charsetp, size_t* charsetlenp,
-                                  const char* in, size_t len)
+                                  const char* in, size_t len, bool defaultUTF8)
 {
-  const char* p = in, * eop = in + len, * mark_first = nullptr,
-              * mark_last = nullptr;
+  const char *p = in, *eop = in + len, *mark_first = nullptr,
+             *mark_last = nullptr;
   int state = CD_BEFORE_DISPOSITION_TYPE;
   int in_file_parm = 0;
   int flags = 0;
@@ -867,7 +1238,7 @@ ssize_t parse_content_disposition(char* dest, size_t destlen,
   /* To suppress warnings */
   char* dp = dest;
   size_t dlen = destlen;
-  uint32_t dfa_state = 0;
+  uint32_t dfa_state = UTF8_ACCEPT;
   uint32_t dfa_code = 0;
   uint8_t pctval = 0;
 
@@ -957,6 +1328,10 @@ ssize_t parse_content_disposition(char* dest, size_t destlen,
       if (*p == '"') {
         quoted_seen = 0;
         state = CD_QUOTED_STRING;
+        if (defaultUTF8) {
+          dfa_state = UTF8_ACCEPT;
+          dfa_code = 0;
+        }
       }
       else if (inRFC2616HttpToken(*p)) {
         if (in_file_parm) {
@@ -987,16 +1362,25 @@ ssize_t parse_content_disposition(char* dest, size_t destlen,
         quoted_seen = 1;
       }
       else if (*p == '"' && quoted_seen == 0) {
+        if (defaultUTF8 && dfa_state != UTF8_ACCEPT) {
+          return -1;
+        }
         if (in_file_parm) {
           flags |= CD_FILENAME_FOUND;
         }
         state = CD_AFTER_VALUE;
       }
       else {
-        /* TEXT which is OCTET except CTLs, but including LWS. We only
-           accept ISO-8859-1 chars. */
+        /* TEXT which is OCTET except CTLs, but including LWS. Accept
+           ISO-8859-1 chars, or UTF-8 if defaultUTF8 is set */
         quoted_seen = 0;
-        if (!isIso8859p1(*p)) {
+        if (defaultUTF8) {
+          if (utf8dfa(&dfa_state, &dfa_code, (unsigned char)*p) ==
+              UTF8_REJECT) {
+            return -1;
+          }
+        }
+        else if (!isIso8859p1(*p)) {
           return -1;
         }
         if (in_file_parm) {
@@ -1088,7 +1472,8 @@ ssize_t parse_content_disposition(char* dest, size_t destlen,
     case CD_VALUE_CHARS:
       if (inRFC5987AttrChar(*p)) {
         if (charset == CD_ENC_UTF8) {
-          if (utf8dfa(&dfa_state, &dfa_code, *p) == UTF8_REJECT) {
+          if (utf8dfa(&dfa_state, &dfa_code, static_cast<unsigned char>(*p)) ==
+              UTF8_REJECT) {
             return -1;
           }
         }
@@ -1180,7 +1565,8 @@ ssize_t parse_content_disposition(char* dest, size_t destlen,
   }
 }
 
-std::string getContentDispositionFilename(const std::string& header)
+std::string getContentDispositionFilename(const std::string& header,
+                                          bool defaultUTF8)
 {
   std::array<char, 1_k> cdval;
   size_t cdvallen = cdval.size();
@@ -1188,13 +1574,14 @@ std::string getContentDispositionFilename(const std::string& header)
   size_t charsetlen;
   ssize_t rv =
       parse_content_disposition(cdval.data(), cdvallen, &charset, &charsetlen,
-                                header.c_str(), header.size());
+                                header.c_str(), header.size(), defaultUTF8);
   if (rv == -1) {
     return "";
   }
 
   std::string res;
-  if (!charset || strieq(charset, charset + charsetlen, "iso-8859-1")) {
+  if ((charset && strieq(charset, charset + charsetlen, "iso-8859-1")) ||
+      (!charset && !defaultUTF8)) {
     res = iso8859p1ToUtf8(cdval.data(), rv);
   }
   else {
@@ -1301,7 +1688,7 @@ static BOOL WINAPI HandlerRoutine(DWORD ctrlType)
   }
   return FALSE;
 }
-}
+} // namespace
 #endif
 
 void setGlobalSignalHandler(int sig, sigset_t* mask, signal_handler_t handler,
@@ -1401,7 +1788,13 @@ std::string getXDGDir(const std::string& environmentVariable,
 {
   std::string filename;
   const char* p = getenv(environmentVariable.c_str());
-  if (p && p[0] == '/') {
+  if (p &&
+#ifndef __MINGW32__
+      p[0] == '/'
+#else  // __MINGW32__
+      p[0] && p[1] == ':'
+#endif // __MINGW32__
+  ) {
     filename = p;
   }
   else {
@@ -1552,9 +1945,10 @@ void mkdirs(const std::string& dirpath)
   if (!dir.mkdirs()) {
     int errNum = errno;
     if (!dir.isDir()) {
-      throw DL_ABORT_EX3(errNum, fmt(EX_MAKE_DIR, dir.getPath().c_str(),
-                                     safeStrerror(errNum).c_str()),
-                         error_code::DIR_CREATE_ERROR);
+      throw DL_ABORT_EX3(
+          errNum,
+          fmt(EX_MAKE_DIR, dir.getPath().c_str(), safeStrerror(errNum).c_str()),
+          error_code::DIR_CREATE_ERROR);
     }
   }
 }
@@ -1794,12 +2188,11 @@ std::string escapePath(const std::string& s)
     unsigned char c = cc;
     if (in(c, 0x00u, 0x1fu) || c == 0x7fu
 #ifdef __MINGW32__
-        ||
-        std::find(std::begin(WIN_INVALID_PATH_CHARS),
-                  std::end(WIN_INVALID_PATH_CHARS),
-                  c) != std::end(WIN_INVALID_PATH_CHARS)
+        || std::find(std::begin(WIN_INVALID_PATH_CHARS),
+                     std::end(WIN_INVALID_PATH_CHARS),
+                     c) != std::end(WIN_INVALID_PATH_CHARS)
 #endif // __MINGW32__
-            ) {
+    ) {
       d += fmt("%%%02X", c);
     }
     else {

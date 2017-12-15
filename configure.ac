@@ -2,7 +2,7 @@
 # Process this file with autoconf to produce a configure script.
 #
 AC_PREREQ([2.67])
-AC_INIT([aria2],[1.22.0],[https://github.com/aria2/aria2/issues],[aria2],[https://aria2.github.io/])
+AC_INIT([aria2],[1.33.0],[https://github.com/aria2/aria2/issues],[aria2],[https://aria2.github.io/])
 
 AC_CANONICAL_HOST
 AC_CANONICAL_TARGET
@@ -21,7 +21,6 @@ AC_SUBST(LT_REVISION, 0)
 AC_SUBST(LT_AGE, 0)
 
 AC_CONFIG_MACRO_DIR([m4])
-m4_ifdef([AM_PATH_CPPUNIT], [AM_PATH_CPPUNIT(1.10.2)])
 AC_CONFIG_SRCDIR([src/a2io.h])
 AC_CONFIG_HEADERS([config.h])
 
@@ -202,6 +201,13 @@ fi
 
 # Checks for libraries.
 
+# Check availability of cppunit
+PKG_CHECK_MODULES([CPPUNIT], [cppunit >= 1.10.2],
+                  [have_cppunit=yes], [have_cppunit=no])
+if test "x$have_cppunit" != "xyes"; then
+  AC_MSG_WARN([$CPPUNIT_PKG_ERRORS])
+fi
+
 # Check availability of libz
 if test "x$with_libz" = "xyes"; then
   PKG_CHECK_MODULES([ZLIB], [zlib >= 1.2.3], [have_zlib=yes], [have_zlib=no])
@@ -220,96 +226,22 @@ if test "x$with_libz" = "xyes"; then
   fi
   if test "x$have_zlib" = "xyes"; then
     AC_DEFINE([HAVE_ZLIB], [1], [Define to 1 if you have zlib.])
-    # Android NDK arch-mips contains gzbuffer symbol but it is missing
-    # in zlib.h
-    save_CFLAGS=$CFLAGS
+    save_CPPFLAGS=$CPPFLAGS
     save_LIBS=$LIBS
-    CFLAGS="$CFLAGS $ZLIB_CFLAGS"
+    CPPFLAGS="$CPPFLAGS $ZLIB_CFLAGS"
     LIBS="$ZLIB_LIBS $LIBS"
-    AC_CHECK_DECL([gzbuffer], [have_decl_gzbuffer=yes], [],
-                  [[#include <zlib.h>]])
-    if test "x$have_decl_gzbuffer" = "xyes"; then
-      AC_CHECK_FUNC([gzbuffer])
-    fi
-    AC_CHECK_FUNCS([gzsetparams])
-    CFLAGS=$save_CFLAGS
+    AC_CHECK_FUNCS([gzbuffer gzsetparams])
+    CPPFLAGS=$save_CPPFLAGS
     LIBS=$save_LIBS
   fi
 fi
 
 have_libuv=no
 if test "x$with_libuv" = "xyes"; then
-  case "$host" in
-    *mingw*|*msvc*)
-      libuv_cflags="-D_WIN32_WINNT=0x0600"
-      save_CPPFLAGS=$CPPFLAGS
-      save_LIBS=$LIBS
-      CPPFLAGS="$CPPFLAGS $libuv_cflags"
-      AC_SEARCH_LIBS([uv_poll_init_socket], [uv], [
-                      AC_CHECK_HEADER([uv.h], [have_libuv=yes], [have_libuv=no])
-                      ], [have_libuv=no])
-      if test "x$have_libuv" = "xyes"; then
-        LIBUV_CFLAGS=$libuv_cflags
-        LIBUV_LIBS=-luv
-        AC_SUBST([LIBUV_CFLAGS])
-        AC_SUBST([LIBUV_LIBS])
-      fi
-      CPPFLAGS=$save_CPPFLAGS
-      CPPLIBS=$save_LIBS
-    ;;
-
-    *darwin*)
-      libuv_ldflags="-framework Foundation -framework CoreServices -framework ApplicationServices"
-      save_LDFLAGS=$LDFLAGS
-      save_LIBS=$LIBS
-      LDFLAGS="$LDFLAGS $libuv_ldflags"
-      AC_SEARCH_LIBS([uv_poll_init_socket], [uv], [
-                      AC_CHECK_HEADER([uv.h], [have_libuv=yes], [have_libuv=no])
-                      ], [have_libuv=no], [-lm])
-      if test "x$have_libuv" = "xyes"; then
-        LIBUV_CFLAGS=
-        LIBUV_LIBS="$libuv_ldflags -luv -lm"
-        AC_SUBST([LIBUV_CFLAGS])
-        AC_SUBST([LIBUV_LIBS])
-      fi
-      LDFLAGS=$save_LDFLAGS
-      LIBS=$save_LIBS
-      ;;
-
-    *)
-      dnl Yeah, sucks that luv does not bring a pkg-config or config-tool
-      AC_MSG_CHECKING([for libuv])
-      save_LIBS=$LIBS
-      for combo in "" "-lrt" "-ldl -lrt" "-ldl -lrt -lpthread" "-lkvm"; do
-        LIBS="-luv $combo $save_LIBS -lm"
-        AC_LINK_IFELSE([AC_LANG_SOURCE([
-extern "C" int uv_poll_init_socket(void);
-int main() { return uv_poll_init_socket(); }
-                       ])], [
-                        AC_MSG_RESULT(-luv $combo -lm)
-                        AC_CHECK_HEADER([uv.h], [have_libuv=yes], [have_libuv=no])
-                        ], [have_libuv=no])
-        if test "x$have_libuv" = "xyes"; then
-          LIBUV_CFLAGS=
-          LIBUV_LIBS="-luv $combo -lm"
-          AC_SUBST([LIBUV_CFLAGS])
-          AC_SUBST([LIBUV_LIBS])
-          break;
-        fi
-      done
-      LIBS=$save_LIBS
-      if test "x$have_libuv" != "xyes"; then
-        AC_MSG_RESULT("no")
-      fi
-    ;;
-  esac
-
+  PKG_CHECK_MODULES([LIBUV], [libuv >= 1.13],
+                    [have_libuv=yes], [have_libuv=no])
   if test "x$have_libuv" = "xyes"; then
     AC_DEFINE([HAVE_LIBUV], [1], [Define to 1 if you have libuv.])
-    save_LIBS=$LIBS
-    LIBS="$LIBUV_LIBS $LIBS"
-    AC_CHECK_FUNCS([uv_last_error])
-    LIBS=$save_LIBS
   elif test "x$with_libuv_requested" = "xyes"; then
     ARIA2_DEP_NOT_MET([libuv])
   fi
@@ -318,13 +250,7 @@ AM_CONDITIONAL([HAVE_LIBUV], [test "x$have_libuv" = "xyes"])
 
 have_libxml2=no
 if test "x$with_libxml2" = "xyes"; then
-  m4_ifdef([AM_PATH_XML2], [AM_PATH_XML2([2.6.24], [have_libxml2=yes])], [
-    AC_MSG_WARN([configure was generated without libxml2 detection.  libxml2 detection is disabled])
-    XML_CPPFLAGS=
-    XML_LIBS=
-    AC_SUBST([XML_CPPFLAGS])
-    AC_SUBST([XML_LIBS])
-  ])
+  PKG_CHECK_MODULES([LIBXML2],[libxml-2.0 >= 2.6.24],[have_libxml2=yes],[have_libxml2=no])
   if test "x$have_libxml2" = "xyes"; then
     AC_DEFINE([HAVE_LIBXML2], [1], [Define to 1 if you have libxml2.])
   elif test "x$with_libxml2_requested" = "xyes"; then
@@ -334,15 +260,10 @@ fi
 
 have_libexpat=no
 if test "x$with_libexpat" = "xyes" && test "x$have_libxml2" != "xyes"; then
-  m4_ifdef([AM_PATH_LIBEXPAT], [AM_PATH_LIBEXPAT], [
-    AC_MSG_WARN([configure was generated without libexpat detection.  libexpat detection is disabled])
-    EXPAT_CFLAGS=
-    EXPAT_LIBS=
-    AC_SUBST([EXPAT_CFLAGS])
-    AC_SUBST([EXPAT_LIBS])
-  ])
-  if test "x$have_libexpat" != "xyes" &&
-     test "x$with_libexpat_requested" = "xyes"; then
+  PKG_CHECK_MODULES([EXPAT],[expat],[have_libexpat=yes],[have_libexpat=no])
+  if test "x$have_libexpat" = "xyes"; then
+    AC_DEFINE([HAVE_LIBEXPAT], [1], [Define to 1 if you have libexpat.])
+  elif test "x$with_libexpat_requested" = "xyes"; then
     ARIA2_DEP_NOT_MET([libexpat])
   fi
 fi
@@ -511,14 +432,12 @@ have_libgcrypt=no
 if test "x$have_openssl" != "xyes"; then
   if test "x$with_libnettle" = "xyes" &&
      test "x$have_nativetls" != "xyes"; then
-    AC_CHECK_LIB([nettle], [nettle_sha1_init],
-                 [have_libnettle=yes], [have_libnettle=no])
+    PKG_CHECK_MODULES([LIBNETTLE], [nettle],
+                      [have_libnettle=yes], [have_libnettle=no])
     if test "x$have_libnettle" = "xyes"; then
-      LIBNETTLE_CFLAGS=
-      LIBNETTLE_LIBS="-lnettle"
-      AC_SUBST([LIBNETTLE_CFLAGS])
-      AC_SUBST([LIBNETTLE_LIBS])
       AC_DEFINE([HAVE_LIBNETTLE], [1], [Define to 1 if you have libnettle.])
+    elif test "x$with_libnettle_requested" = "xyes"; then
+      ARIA2_DEP_NOT_MET([nettle])
     fi
   fi
   if test "x$with_libgmp" = "xyes" &&
@@ -1003,9 +922,6 @@ AC_CHECK_FUNCS([gettimeofday],
 AC_CHECK_FUNCS([strptime],
         [AM_CONDITIONAL([HAVE_STRPTIME], true)],
         [AM_CONDITIONAL([HAVE_STRPTIME], false)])
-AC_CHECK_FUNCS([timegm],
-        [AM_CONDITIONAL([HAVE_TIMEGM], true)],
-        [AM_CONDITIONAL([HAVE_TIMEGM], false)])
 AC_CHECK_FUNCS([daemon], [have_daemon=yes])
 AM_CONDITIONAL([HAVE_DAEMON], [test "x$have_daemon" = "xyes"])
 
@@ -1022,6 +938,18 @@ case "$host" in
     ;;
   *)
     AM_CONDITIONAL([MINGW_BUILD], false)
+    ;;
+esac
+
+case "$host" in
+  *android*)
+    # timegm is not declared with Android NDK r12b
+    AM_CONDITIONAL([HAVE_TIMEGM], false)
+    ;;
+  *)
+    AC_CHECK_FUNCS([timegm],
+        [AM_CONDITIONAL([HAVE_TIMEGM], true)],
+        [AM_CONDITIONAL([HAVE_TIMEGM], false)])
     ;;
 esac
 
@@ -1103,31 +1031,6 @@ AM_CONDITIONAL([ENABLE_WEBSOCKET], [test "x$enable_websocket" = "xyes"])
 AM_CONDITIONAL([ENABLE_LIBARIA2], [test "x$enable_libaria2" = "xyes"])
 
 AC_SUBST([bashcompletiondir])
-
-case "$host" in
-  *android*)
-    android=yes
-    LIBS="$LIBS -lstdc++ -lsupc++"
-    case "$host" in
-      arm-*)
-        android_arm=yes
-        ;;
-      mipsel-*)
-        android_mips=yes
-        ;;
-      i686-*)
-        android_x86=yes
-        ;;
-    esac
-    ;;
-  *)
-    ;;
-esac
-
-AM_CONDITIONAL([ANDROID], [test "x$android" = "xyes"])
-AM_CONDITIONAL([ANDROID_ARM], [test "x$android_arm" = "xyes"])
-AM_CONDITIONAL([ANDROID_MIPS], [test "x$android_mips" = "xyes"])
-AM_CONDITIONAL([ANDROID_X86], [test "x$android_x86" = "xyes"])
 
 if test "x$ARIA2_STATIC" = "xyes"; then
   # -static-libgcc and -static-libstdc++ are linker flags and not for
@@ -1220,7 +1123,7 @@ CA Bundle:      $ca_bundle
 LibNettle:      $have_libnettle (CFLAGS='$LIBNETTLE_CFLAGS' LIBS='$LIBNETTLE_LIBS')
 LibGmp:         $have_libgmp (CFLAGS='$LIBGMP_CFLAGS' LIBS='$LIBGMP_LIBS')
 LibGcrypt:      $have_libgcrypt (CFLAGS='$LIBGCRYPT_CFLAGS' LIBS='$LIBGCRYPT_LIBS')
-LibXML2:        $have_libxml2 (CFLAGS='$XML_CPPFLAGS' LIBS='$XML_LIBS')
+LibXML2:        $have_libxml2 (CFLAGS='$LIBXML2_CFLAGS' LIBS='$LIBXML2_LIBS')
 LibExpat:       $have_libexpat (CFLAGS='$EXPAT_CFLAGS' LIBS='$EXPAT_LIBS')
 LibCares:       $have_libcares (CFLAGS='$LIBCARES_CFLAGS' LIBS='$LIBCARES_LIBS')
 Zlib:           $have_zlib (CFLAGS='$ZLIB_CFLAGS' LIBS='$ZLIB_LIBS')

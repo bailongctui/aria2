@@ -119,7 +119,7 @@ void AbstractDiskWriter::openFile(int64_t totalLength)
 #else  // !__MINGW32__
         e.getErrNum() == ENOENT
 #endif // !__MINGW32__
-        ) {
+    ) {
       initAndOpenFile(totalLength);
     }
     else {
@@ -201,9 +201,10 @@ HANDLE openFileWithFlags(const std::string& filename, int flags,
                    FILE_ATTRIBUTE_NORMAL, /* hTemplateFile */ 0);
   if (hn == INVALID_HANDLE_VALUE) {
     int errNum = GetLastError();
-    throw DL_ABORT_EX3(errNum, fmt(EX_FILE_OPEN, filename.c_str(),
-                                   fileStrerror(errNum).c_str()),
-                       errCode);
+    throw DL_ABORT_EX3(
+        errNum,
+        fmt(EX_FILE_OPEN, filename.c_str(), fileStrerror(errNum).c_str()),
+        errCode);
   }
   return hn;
 }
@@ -217,9 +218,10 @@ int openFileWithFlags(const std::string& filename, int flags,
     ;
   if (fd < 0) {
     int errNum = errno;
-    throw DL_ABORT_EX3(errNum, fmt(EX_FILE_OPEN, filename.c_str(),
-                                   util::safeStrerror(errNum).c_str()),
-                       errCode);
+    throw DL_ABORT_EX3(
+        errNum,
+        fmt(EX_FILE_OPEN, filename.c_str(), util::safeStrerror(errNum).c_str()),
+        errCode);
   }
   util::make_fd_cloexec(fd);
 #if defined(__APPLE__) && defined(__MACH__)
@@ -373,6 +375,14 @@ void AbstractDiskWriter::ensureMmapWrite(size_t len, int64_t offset)
         return;
       }
 
+      if (static_cast<uint64_t>(std::numeric_limits<size_t>::max()) <
+          static_cast<uint64_t>(filesize)) {
+        // filesize could overflow in 32bit OS with 64bit off_t type
+        // the filesize will be truncated if provided as a 32bit size_t
+        enableMmap_ = false;
+        return;
+      }
+
       int errNum = 0;
       if (static_cast<int64_t>(len + offset) <= filesize) {
 #ifdef __MINGW32__
@@ -391,10 +401,14 @@ void AbstractDiskWriter::ensureMmapWrite(size_t len, int64_t offset)
           errNum = GetLastError();
         }
 #else  // !__MINGW32__
-        mapaddr_ = reinterpret_cast<unsigned char*>(mmap(
-            nullptr, filesize, PROT_READ | PROT_WRITE, MAP_SHARED, fd_, 0));
-        if (!mapaddr_) {
+        auto pa =
+            mmap(nullptr, filesize, PROT_READ | PROT_WRITE, MAP_SHARED, fd_, 0);
+
+        if (pa == MAP_FAILED) {
           errNum = errno;
+        }
+        else {
+          mapaddr_ = reinterpret_cast<unsigned char*>(pa);
         }
 #endif // !__MINGW32__
         if (mapaddr_) {
@@ -413,30 +427,39 @@ void AbstractDiskWriter::ensureMmapWrite(size_t len, int64_t offset)
 #endif // HAVE_MMAP || __MINGW32__
 }
 
+namespace {
+// Returns true if |errNum| indicates that disk is full.
+bool isDiskFullError(int errNum)
+{
+  return
+#ifdef __MINGW32__
+      errNum == ERROR_DISK_FULL || errNum == ERROR_HANDLE_DISK_FULL
+#else  // !__MINGW32__
+      errNum == ENOSPC
+#endif // !__MINGW32__
+      ;
+}
+} // namespace
+
 void AbstractDiskWriter::writeData(const unsigned char* data, size_t len,
                                    int64_t offset)
 {
   ensureMmapWrite(len, offset);
   if (writeDataInternal(data, len, offset) < 0) {
     int errNum = fileError();
-    if (
-// If the error indicates disk full situation, throw
-// DownloadFailureException and abort download instantly.
-#ifdef __MINGW32__
-        errNum == ERROR_DISK_FULL || errNum == ERROR_HANDLE_DISK_FULL
-#else  // !__MINGW32__
-        errNum == ENOSPC
-#endif // !__MINGW32__
-        ) {
+    // If the error indicates disk full situation, throw
+    // DownloadFailureException and abort download instantly.
+    if (isDiskFullError(errNum)) {
       throw DOWNLOAD_FAILURE_EXCEPTION3(
           errNum,
           fmt(EX_FILE_WRITE, filename_.c_str(), fileStrerror(errNum).c_str()),
           error_code::NOT_ENOUGH_DISK_SPACE);
     }
     else {
-      throw DL_ABORT_EX3(errNum, fmt(EX_FILE_WRITE, filename_.c_str(),
-                                     fileStrerror(errNum).c_str()),
-                         error_code::FILE_IO_ERROR);
+      throw DL_ABORT_EX3(
+          errNum,
+          fmt(EX_FILE_WRITE, filename_.c_str(), fileStrerror(errNum).c_str()),
+          error_code::FILE_IO_ERROR);
     }
   }
 }
@@ -447,9 +470,10 @@ ssize_t AbstractDiskWriter::readData(unsigned char* data, size_t len,
   ssize_t ret;
   if ((ret = readDataInternal(data, len, offset)) < 0) {
     int errNum = fileError();
-    throw DL_ABORT_EX3(errNum, fmt(EX_FILE_READ, filename_.c_str(),
-                                   fileStrerror(errNum).c_str()),
-                       error_code::FILE_IO_ERROR);
+    throw DL_ABORT_EX3(
+        errNum,
+        fmt(EX_FILE_READ, filename_.c_str(), fileStrerror(errNum).c_str()),
+        error_code::FILE_IO_ERROR);
   }
   return ret;
 }
@@ -505,24 +529,20 @@ void AbstractDiskWriter::allocate(int64_t offset, int64_t length, bool sparse)
         fileStrerror(errNum).c_str()));
   }
 #elif defined(__APPLE__) && defined(__MACH__)
-  auto toalloc = offset + length - size();
-  while (toalloc > 0) {
-    fstore_t fstore = {
-        F_ALLOCATECONTIG | F_ALLOCATEALL, F_PEOFPOSMODE, 0,
-        // Allocate in 1GB chunks or else some OSX versions may choke.
-        std::min(toalloc, (int64_t)1 << 30), 0};
+  const auto toalloc = offset + length - size();
+  fstore_t fstore = {F_ALLOCATECONTIG | F_ALLOCATEALL, F_PEOFPOSMODE, 0,
+                     toalloc, 0};
+  if (fcntl(fd_, F_PREALLOCATE, &fstore) == -1) {
+    // Retry non-contig.
+    fstore.fst_flags = F_ALLOCATEALL;
     if (fcntl(fd_, F_PREALLOCATE, &fstore) == -1) {
-      // Retry non-contig.
-      fstore.fst_flags = F_ALLOCATEALL;
-      if (fcntl(fd_, F_PREALLOCATE, &fstore) == -1) {
-        int err = errno;
-        throw DL_ABORT_EX3(
-            err, fmt("fcntl(F_PREALLOCATE) of %" PRId64 " failed. cause: %s",
-                     fstore.fst_length, util::safeStrerror(err).c_str()),
-            error_code::FILE_IO_ERROR);
-      }
+      int err = errno;
+      throw DL_ABORT_EX3(
+          err,
+          fmt("fcntl(F_PREALLOCATE) of %" PRId64 " failed. cause: %s",
+              fstore.fst_length, util::safeStrerror(err).c_str()),
+          error_code::FILE_IO_ERROR);
     }
-    toalloc -= fstore.fst_bytesalloc;
   }
   // This forces the allocation on disk.
   ftruncate(fd_, offset + length);
@@ -534,16 +554,20 @@ void AbstractDiskWriter::allocate(int64_t offset, int64_t length, bool sparse)
     ;
   int errNum = errno;
   if (r == -1) {
-    throw DL_ABORT_EX3(errNum, fmt("fallocate failed. cause: %s",
-                                   util::safeStrerror(errNum).c_str()),
-                       error_code::FILE_IO_ERROR);
+    throw DL_ABORT_EX3(
+        errNum,
+        fmt("fallocate failed. cause: %s", util::safeStrerror(errNum).c_str()),
+        isDiskFullError(errNum) ? error_code::NOT_ENOUGH_DISK_SPACE
+                                : error_code::FILE_IO_ERROR);
   }
 #elif HAVE_POSIX_FALLOCATE
   int r = posix_fallocate(fd_, offset, length);
   if (r != 0) {
-    throw DL_ABORT_EX3(r, fmt("posix_fallocate failed. cause: %s",
-                              util::safeStrerror(r).c_str()),
-                       error_code::FILE_IO_ERROR);
+    throw DL_ABORT_EX3(
+        r,
+        fmt("posix_fallocate failed. cause: %s", util::safeStrerror(r).c_str()),
+        isDiskFullError(r) ? error_code::NOT_ENOUGH_DISK_SPACE
+                           : error_code::FILE_IO_ERROR);
   }
 #else
 #error "no *_fallocate function available."

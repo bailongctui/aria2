@@ -81,7 +81,7 @@ HttpSkipResponseCommand::HttpSkipResponseCommand(
   checkSocketRecvBuffer();
 }
 
-HttpSkipResponseCommand::~HttpSkipResponseCommand() {}
+HttpSkipResponseCommand::~HttpSkipResponseCommand() = default;
 
 void HttpSkipResponseCommand::installStreamFilter(
     std::unique_ptr<StreamFilter> streamFilter)
@@ -220,6 +220,7 @@ bool HttpSkipResponseCommand::processResponse()
       }
       throw DL_RETRY_EX2(MSG_RESOURCE_NOT_FOUND,
                          error_code::RESOURCE_NOT_FOUND);
+    case 502:
     case 503:
       // Only retry if pretry-wait > 0. Hammering 'busy' server is not
       // a good idea.

@@ -69,7 +69,7 @@ DHTBucket::DHTBucket(const std::shared_ptr<DHTNode>& localNode)
   memset(min_, 0, DHT_ID_LENGTH);
 }
 
-DHTBucket::~DHTBucket() {}
+DHTBucket::~DHTBucket() = default;
 
 void DHTBucket::getRandomNodeID(unsigned char* nodeID) const
 {
@@ -245,9 +245,8 @@ bool DHTBucket::operator==(const DHTBucket& bucket) const
 
 bool DHTBucket::needsRefresh() const
 {
-  return nodes_.size() < K ||
-         lastUpdated_.difference(global::wallclock()) >=
-             DHT_BUCKET_REFRESH_INTERVAL;
+  return nodes_.size() < K || lastUpdated_.difference(global::wallclock()) >=
+                                  DHT_BUCKET_REFRESH_INTERVAL;
 }
 
 void DHTBucket::notifyUpdate() { lastUpdated_ = global::wallclock(); }

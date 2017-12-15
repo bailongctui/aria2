@@ -54,7 +54,7 @@ void showVersion()
 {
   std::cout
       << PACKAGE << _(" version ") << PACKAGE_VERSION << "\n"
-      << "Copyright (C) 2006, 2015 Tatsuhiro Tsujikawa"
+      << "Copyright (C) 2006, 2017 Tatsuhiro Tsujikawa"
       << "\n"
       << "\n"
       << _("This program is free software; you can redistribute it and/or "
@@ -67,14 +67,17 @@ void showVersion()
            "This program is distributed in the hope that it will be useful,\n"
            "but WITHOUT ANY WARRANTY; without even the implied warranty of\n"
            "MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the\n"
-           "GNU General Public License for more details.\n") << "\n"
-      << _("** Configuration **") << "\n" << _("Enabled Features") << ": "
-      << featureSummary() << "\n" << _("Hash Algorithms") << ": "
-      << MessageDigest::getSupportedHashTypeString() << "\n" << _("Libraries")
-      << ": " << usedLibs() << "\n" << _("Compiler") << ": "
-      << usedCompilerAndPlatform() << "\n" << _("System") << ": "
-      << getOperatingSystemInfo() << "\n"
-      << "\n" << fmt(_("Report bugs to %s"), PACKAGE_BUGREPORT) << "\n"
+           "GNU General Public License for more details.\n")
+      << "\n"
+      << _("** Configuration **") << "\n"
+      << _("Enabled Features") << ": " << featureSummary() << "\n"
+      << _("Hash Algorithms") << ": "
+      << MessageDigest::getSupportedHashTypeString() << "\n"
+      << _("Libraries") << ": " << usedLibs() << "\n"
+      << _("Compiler") << ": " << usedCompilerAndPlatform() << "\n"
+      << _("System") << ": " << getOperatingSystemInfo() << "\n"
+      << "\n"
+      << fmt(_("Report bugs to %s"), PACKAGE_BUGREPORT) << "\n"
       << _("Visit") << " " << PACKAGE_URL << std::endl;
 }
 

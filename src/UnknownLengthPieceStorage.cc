@@ -56,7 +56,7 @@ UnknownLengthPieceStorage::UnknownLengthPieceStorage(
 {
 }
 
-UnknownLengthPieceStorage::~UnknownLengthPieceStorage() {}
+UnknownLengthPieceStorage::~UnknownLengthPieceStorage() = default;
 
 void UnknownLengthPieceStorage::initStorage()
 {
@@ -208,6 +208,15 @@ bool UnknownLengthPieceStorage::isPieceUsed(size_t index)
   else {
     return false;
   }
+}
+
+int64_t UnknownLengthPieceStorage::getCompletedLength()
+{
+  // TODO we have to return actual completed length here?
+  if (piece_) {
+    return piece_->getLength();
+  }
+  return totalLength_;
 }
 
 std::shared_ptr<DiskAdaptor> UnknownLengthPieceStorage::getDiskAdaptor()

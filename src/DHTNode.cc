@@ -55,7 +55,7 @@ DHTNode::DHTNode(const unsigned char* id)
   memcpy(id_, id, DHT_ID_LENGTH);
 }
 
-DHTNode::~DHTNode() {}
+DHTNode::~DHTNode() = default;
 
 void DHTNode::generateID() { util::generateRandomKey(id_); }
 
@@ -87,9 +87,8 @@ bool DHTNode::isBad() const { return condition_ >= BAD_CONDITION; }
 
 bool DHTNode::isQuestionable() const
 {
-  return !isBad() &&
-         lastContact_.difference(global::wallclock()) >=
-             DHT_NODE_CONTACT_INTERVAL;
+  return !isBad() && lastContact_.difference(global::wallclock()) >=
+                         DHT_NODE_CONTACT_INTERVAL;
 }
 
 void DHTNode::markGood() { condition_ = 0; }

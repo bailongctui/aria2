@@ -349,6 +349,8 @@ PrefPtr PREF_STOP_WITH_PROCESS = makePref("stop-with-process");
 PrefPtr PREF_ENABLE_MMAP = makePref("enable-mmap");
 // value: true | false
 PrefPtr PREF_FORCE_SAVE = makePref("force-save");
+// value: true | false
+PrefPtr PREF_SAVE_NOT_FOUND = makePref("save-not-found");
 // value: 1*digit
 PrefPtr PREF_DISK_CACHE = makePref("disk-cache");
 // value: string
@@ -372,6 +374,9 @@ PrefPtr PREF_SOCKET_RECV_BUFFER_SIZE = makePref("socket-recv-buffer-size");
 PrefPtr PREF_MAX_MMAP_LIMIT = makePref("max-mmap-limit");
 // value: true | false
 PrefPtr PREF_STDERR = makePref("stderr");
+// value: true | false
+PrefPtr PREF_KEEP_UNFINISHED_DOWNLOAD_RESULT =
+    makePref("keep-unfinished-download-result");
 
 /**
  * FTP related preferences
@@ -422,6 +427,9 @@ PrefPtr PREF_HTTP_AUTH_CHALLENGE = makePref("http-auth-challenge");
 PrefPtr PREF_HTTP_NO_CACHE = makePref("http-no-cache");
 // value: true | false
 PrefPtr PREF_HTTP_ACCEPT_GZIP = makePref("http-accept-gzip");
+// value: true | false
+PrefPtr PREF_CONTENT_DISPOSITION_DEFAULT_UTF8 =
+    makePref("content-disposition-default-utf8");
 
 /**
  * Proxy related preferences
@@ -474,6 +482,8 @@ PrefPtr PREF_SEED_RATIO = makePref("seed-ratio");
 PrefPtr PREF_BT_KEEP_ALIVE_INTERVAL = makePref("bt-keep-alive-interval");
 // values: a string, less than or equals to 20 bytes length
 PrefPtr PREF_PEER_ID_PREFIX = makePref("peer-id-prefix");
+// values: a string representing the extended BT handshake peer user agent
+PrefPtr PREF_PEER_AGENT = makePref("peer-agent");
 // values: true | false
 PrefPtr PREF_ENABLE_PEER_EXCHANGE = makePref("enable-peer-exchange");
 // values: true | false
@@ -555,6 +565,8 @@ PrefPtr PREF_BT_FORCE_ENCRYPTION = makePref("bt-force-encryption");
 // values: true | false
 PrefPtr PREF_BT_ENABLE_HOOK_AFTER_HASH_CHECK =
     makePref("bt-enable-hook-after-hash-check");
+// values: true | false
+PrefPtr PREF_BT_LOAD_SAVED_METADATA = makePref("bt-load-saved-metadata");
 
 /**
  * Metalink related preferences

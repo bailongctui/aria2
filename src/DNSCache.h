@@ -98,7 +98,8 @@ private:
   };
 
   typedef std::set<std::shared_ptr<CacheEntry>,
-                   DerefLess<std::shared_ptr<CacheEntry>>> CacheEntrySet;
+                   DerefLess<std::shared_ptr<CacheEntry>>>
+      CacheEntrySet;
   CacheEntrySet entries_;
 
 public:
@@ -114,7 +115,7 @@ public:
   void findAll(OutputIterator out, const std::string& hostname,
                uint16_t port) const
   {
-    std::shared_ptr<CacheEntry> target(new CacheEntry(hostname, port));
+    auto target = std::make_shared<CacheEntry>(hostname, port);
     auto i = entries_.find(target);
     if (i != entries_.end()) {
       (*i)->getAllGoodAddrs(out);

@@ -111,8 +111,9 @@ int main(int argc, char** argv)
     // the application can call aria2 API to add URI or query progress
     // here
     auto now = std::chrono::steady_clock::now();
-    auto count = std::chrono::duration_cast<std::chrono::milliseconds>(
-                     now - start).count();
+    auto count =
+        std::chrono::duration_cast<std::chrono::milliseconds>(now - start)
+            .count();
     // Print progress information once per 500ms
     if (count >= 500) {
       start = now;
@@ -127,10 +128,12 @@ int main(int argc, char** argv)
         if (dh) {
           std::cerr << "    [" << aria2::gidToHex(gid) << "] "
                     << dh->getCompletedLength() << "/" << dh->getTotalLength()
-                    << "(" << (dh->getTotalLength() > 0
-                                   ? (100 * dh->getCompletedLength() /
-                                      dh->getTotalLength())
-                                   : 0) << "%)"
+                    << "("
+                    << (dh->getTotalLength() > 0
+                            ? (100 * dh->getCompletedLength() /
+                               dh->getTotalLength())
+                            : 0)
+                    << "%)"
                     << " D:" << dh->getDownloadSpeed() / 1024
                     << "KiB/s, U:" << dh->getUploadSpeed() / 1024 << "KiB/s"
                     << std::endl;
